@@ -2,7 +2,19 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!--
+      INTERNET stays the app's own declaration, so the requirement is not hidden from the consumer.
+
+      ACCESS_NETWORK_STATE is deliberately ABSENT: from 1.0.0-beta.6 the SDK declares it itself and
+      the manifest merger brings it in. Verify after a build with
+        grep ACCESS_NETWORK_STATE app/build/intermediates/packaged_manifests/*/*/AndroidManifest.xml
+      Missing on BOTH sides means NetworkChangeCollector never registers, every event ships
+      `not_connected`, and no `network_change` event is emitted — with nothing saying so.
+    -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
     <application
+        android:name=".app.RortyApp"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
@@ -10,7 +22,9 @@
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.Pantrixrortycomposedemo">
+        android:theme="@style/Theme.Pantrixrortycomposedemo"
+        tools:targetApi="31"
+        android:usesCleartextTraffic="true">
         <activity
             android:name=".MainActivity"
             android:exported="true"

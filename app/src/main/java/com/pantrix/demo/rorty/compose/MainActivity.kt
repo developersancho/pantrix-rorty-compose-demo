@@ -4,44 +4,23 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
+import com.pantrix.demo.rorty.compose.app.RortyNavDisplay
 import com.pantrix.demo.rorty.compose.ui.theme.PantrixRortyTheme
 
+/**
+ * The only Activity. Everything above it is Compose, which is also why the SDK's automatic screen
+ * tracking cannot help here: it watches Activity/Fragment lifecycles, so it would see exactly one
+ * screen for the entire app and never change it. Screens are reported from the Navigation 3 back
+ * stack instead — see [RortyNavDisplay].
+ */
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
             PantrixRortyTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    Greeting(
-                        name = "Android",
-                        modifier = Modifier.padding(innerPadding)
-                    )
-                }
+                RortyNavDisplay()
             }
         }
-    }
-}
-
-@Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
-}
-
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    PantrixRortyTheme {
-        Greeting("Android")
     }
 }

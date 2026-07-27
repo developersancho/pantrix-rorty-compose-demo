@@ -4,6 +4,36 @@ import java.util.Properties
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.pantrix.gradle)
+}
+
+// R8 mapping upload. The CI keys are secrets, so they come from the gitignored local.properties (or
+// the environment on a build machine) — never from BuildConfig, which ships inside the APK. Each
+// variant uploads to its OWN project: the mapping project must match the crash project, or the
+// backend has no mapping for the build that crashed and stack traces stay obfuscated.
+val localProps = Properties().apply {
+    rootProject.file("local.properties").takeIf { it.exists() }?.let { load(FileInputStream(it)) }
+}
+
+fun ciKey(variant: String): String =
+    (localProps["pantrix.ci.key.$variant"] as String?)
+        ?: providers.environmentVariable("PANTRIX_CI_KEY_${variant.uppercase()}").orNull
+        ?: ""
+
+pantrix {
+    variantFilter {
+        val key = ciKey(name)
+        apiKey = key
+        // localhost, NOT 10.0.2.2: this task runs on the BUILD MACHINE. 10.0.2.2 is the emulator's
+        // alias for the host loopback and only means anything from inside the emulator — the SDK's
+        // runtime url (PANTRIX_URL below) uses that, this does not. Swapping them costs a build-long
+        // socket timeout with no useful error.
+        apiUrl = "http://localhost:8099/api"
+        // debug is not minified, so R8 never runs and there is no mapping.txt to upload. An absent
+        // key also disables the variant rather than failing the build on a machine with no creds.
+        enabled = name != "debug" && key.isNotEmpty()
+    }
 }
 
 android {
@@ -104,11 +134,57 @@ dependencies {
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.compose.material3)
+    implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
+
+    // Navigation 3. The back stack is a plain observable list this app owns — there is no
+    // NavController and no graph, which is also why Pantrix can track it with one composable.
+    implementation(libs.androidx.navigation3.runtime)
+    implementation(libs.androidx.navigation3.ui)
+    implementation(libs.androidx.lifecycle.viewmodel.navigation3)
+
+    implementation(libs.koin.android)
+    implementation(libs.koin.androidx.compose)
+
+    implementation(libs.ktor.client.core)
+    implementation(libs.ktor.client.okhttp)
+    implementation(libs.ktor.client.content.negotiation)
+    implementation(libs.ktor.serialization.kotlinx.json)
+
+    implementation(libs.coil.compose)
+    implementation(libs.coil.network.okhttp)
+
+    // Pantrix. `pantrix-sdk` is required; the four add-ons are opt-in and each needs its peers
+    // (declared above) because it ships them `compileOnly`.
+    implementation(libs.pantrix.sdk)
+    implementation(libs.pantrix.compose)
+    implementation(libs.pantrix.compose.navigation3)
+    implementation(libs.pantrix.ktor)
+
+    // The debug tools are twin pairs: the real module on debug/qaTest, the inert `-noop` on release,
+    // so the tool's code is not in the shipped APK at all and no call site needs a BuildConfig.DEBUG
+    // guard.
+    debugImplementation(libs.pantrix.inspector)
+    debugImplementation(libs.pantrix.feedback)
+    "qaTestImplementation"(libs.pantrix.inspector)
+    "qaTestImplementation"(libs.pantrix.feedback)
+    releaseImplementation(libs.pantrix.inspector.noop)
+    releaseImplementation(libs.pantrix.feedback.noop)
+
+    // The home-screen widget is DEBUG only. It has no init call — its receiver arrives through the
+    // merged manifest — so merely having the real module on a build type makes the widget appear in
+    // the launcher's picker. That is why Glance must come with it: pantrix-widget declares Glance
+    // `compileOnly`, and without it the system hits NoClassDefFoundError the moment the widget is
+    // placed, not at build time. qaTest and release take the `-noop` twin, which registers nothing.
+    debugImplementation(libs.pantrix.widget)
+    debugImplementation(libs.glance.appwidget)
+    "qaTestImplementation"(libs.pantrix.widget.noop)
+    releaseImplementation(libs.pantrix.widget.noop)
+
     testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
