@@ -14,5 +14,6 @@ import org.koin.core.module.Module
  * a repository interface from `domain` meets its implementation from `data`.
  */
 val appModules: List<Module> = listOf(
-    // dataModule and viewModelModule land here in Faz 1 / Faz 2.
+    dataModule,
+    // viewModelModule lands here in Faz 2.
 )

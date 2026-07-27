@@ -55,9 +55,7 @@ fun RortyNavDisplay() {
                         element = "faz0_open_lab",
                     ) { backStack.add(LabPage) }
                 }
-                entry<LabPage> {
-                    Placeholder(title = "LabPage", buttonLabel = null, element = null, onClick = {})
-                }
+                entry<LabPage> { Faz1Probe() }
             },
         )
     }
