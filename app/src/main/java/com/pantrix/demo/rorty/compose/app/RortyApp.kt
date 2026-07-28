@@ -51,8 +51,11 @@ class RortyApp : Application() {
                 // Off would delete events right after upload — and the Inspector reads that same
                 // store, which is what makes events look like they are "disappearing" from it.
                 keepSentEvents(!variant.isRelease)
+                // FULL needs SQLCipher on the classpath (the SDK declares it `compileOnly`); this app
+                // ships it on the same variants — see `BuildVariant.encryptStorage` for the failure
+                // that made the pairing explicit. Get it wrong and `init` disables the SDK silently.
                 storageEncryption(
-                    if (variant.isRelease) StorageEncryption.FULL else StorageEncryption.NONE
+                    if (variant.encryptStorage) StorageEncryption.FULL else StorageEncryption.NONE
                 )
                 // On — and that makes everything above a REQUEST, not a decision. Remote config is a
                 // full override: a project with no SDK Config row gets the backend's baseline, which

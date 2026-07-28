@@ -45,6 +45,22 @@ enum class BuildVariant {
     /** `http://` needs the insecure-connection opt-in; a real production backend would be HTTPS. */
     val allowInsecureConnection: Boolean get() = backendUrl.startsWith("http://")
 
+    /**
+     * Whether the event store is encrypted (`StorageEncryption.FULL`) rather than plaintext.
+     *
+     * **Deliberately not `isRelease`.** `storageEncryption` FULL/DATABASE needs SQLCipher, which the
+     * SDK declares `compileOnly` — so the app must ship `net.zetetic:sqlcipher-android` itself. While
+     * this was release-only, the encrypted path was the one path no one ever ran, and it was broken:
+     * `Pantrix.init` threw `IllegalStateException: storageEncryption=FULL requires the SQLCipher
+     * dependency`, caught it, logged `the SDK is disabled` — and release sets `enableLogging(false)`,
+     * so even that line was invisible. Release shipped with the SDK entirely off and nothing said so;
+     * the backend simply had zero rows for that project while debug and qaTest looked fine.
+     *
+     * qaTest now carries the same storage mode as release, so the variant that gets tested is the one
+     * that ships. Debug stays plaintext: it iterates fastest and its db stays readable over adb.
+     */
+    val encryptStorage: Boolean get() = this != DEBUG
+
     companion object {
         val current: BuildVariant
             get() = when (BuildConfig.BUILD_TYPE) {

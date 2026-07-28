@@ -21,6 +21,10 @@ ktor = "3.5.0"
 koin = "4.2.2"
 coil = "3.5.0"
 glance = "1.1.1"
+# Peer of `storageEncryption(DATABASE | FULL)`. The SDK declares SQLCipher `compileOnly`, so an app
+# that asks for an encrypted store has to bring it — see the qaTest/release wiring in
+# app/build.gradle.kts and the measurement that made this necessary.
+sqlcipher = "4.15.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -56,6 +60,8 @@ koin-androidx-compose = { group = "io.insert-koin", name = "koin-androidx-compos
 
 coil-compose = { group = "io.coil-kt.coil3", name = "coil-compose", version.ref = "coil" }
 coil-network-okhttp = { group = "io.coil-kt.coil3", name = "coil-network-okhttp", version.ref = "coil" }
+
+sqlcipher = { group = "net.zetetic", name = "sqlcipher-android", version.ref = "sqlcipher" }
 
 # Pantrix. `pantrix-sdk` is the fused core (api + core + android + crash + okhttp). The four add-ons
 # below are SEPARATE artifacts and every one of their own dependencies is `compileOnly` — Compose UI,

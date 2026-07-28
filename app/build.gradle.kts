@@ -185,6 +185,17 @@ dependencies {
     "qaTestImplementation"(libs.pantrix.widget.noop)
     releaseImplementation(libs.pantrix.widget.noop)
 
+    // SQLCipher, on exactly the variants that ask for `StorageEncryption.FULL`
+    // (`BuildVariant.encryptStorage`). The SDK declares it `compileOnly`, so the app supplies it —
+    // and if it doesn't, `Pantrix.init` throws, catches, logs "the SDK is disabled" and carries on.
+    // Release also sets `enableLogging(false)`, so that line never appears: the app runs perfectly
+    // and reports nothing at all. Measured — the release project had zero rows in ClickHouse while
+    // debug and qaTest were fine. Keep this list and `encryptStorage` in step.
+    //
+    // ~7 MB of native libraries per ABI, which is why debug does not carry it.
+    "qaTestImplementation"(libs.sqlcipher)
+    releaseImplementation(libs.sqlcipher)
+
     testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
