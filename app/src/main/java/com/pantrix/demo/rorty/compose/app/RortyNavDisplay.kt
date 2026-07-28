@@ -20,12 +20,21 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
+import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
+import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
 import com.pantrix.compose.navigation3.PantrixScreenNavTracking
 import com.pantrix.compose.trackedClick
 import com.pantrix.demo.rorty.compose.ui.characters.CharactersScreen
+import com.pantrix.demo.rorty.compose.ui.crosslist.CharactersByIdsScreen
+import com.pantrix.demo.rorty.compose.ui.crosslist.EpisodesByIdsScreen
+import com.pantrix.demo.rorty.compose.ui.detail.CharacterDetailScreen
+import com.pantrix.demo.rorty.compose.ui.detail.EpisodeDetailScreen
+import com.pantrix.demo.rorty.compose.ui.detail.LocationDetailScreen
+import com.pantrix.demo.rorty.compose.ui.episodes.EpisodesScreen
+import com.pantrix.demo.rorty.compose.ui.locations.LocationsScreen
 
 /**
  * The whole navigation surface: five owned back stacks, one `NavDisplay`, one line of Pantrix.
@@ -88,30 +97,63 @@ fun RortyNavDisplay() {
             backStack = backStack,
             modifier = Modifier.padding(padding),
             onBack = { if (backStack.size > 1) backStack.removeAt(backStack.lastIndex) },
+            // Measured, and NOT the default: without the view-model decorator `koinViewModel()`
+            // resolves against the Activity, so one `CharacterDetailViewModel` served every detail
+            // entry. Opening Rick (id 1) then Morty (id 2) produced two `character_opened` events but
+            // only ONE request — `/api/character/1` — and the second screen rendered Rick. Nothing
+            // failed; the screen was simply wrong.
+            //
+            // Naming this list replaces NavDisplay's defaults, so the saveable-state decorator has to
+            // be restated here to keep per-entry `rememberSaveable` working.
+            entryDecorators = listOf(
+                rememberSaveableStateHolderNavEntryDecorator(),
+                rememberViewModelStoreNavEntryDecorator(),
+            ),
             entryProvider = entryProvider {
                 entry<CharactersPage> {
                     CharactersScreen(onOpenDetail = { backStack.add(CharacterDetailPage(it)) })
                 }
                 entry<CharacterDetailPage> { key ->
-                    // Placeholder until Faz 3, but with the one control that measures trap 3:
-                    // pushing an EQUAL key. `PantrixScreenNavTracking` keys its effect on the top
-                    // NavKey, and these are data classes — so a re-push of `CharacterDetailPage(1)`
-                    // is `==` to what is already on top and may emit no second `screen_view`.
-                    Soon(
-                        title = "CharacterDetailPage(id=${key.id})",
-                        actionLabel = "Push the SAME key again (trap 3)",
-                        onAction = { backStack.add(CharacterDetailPage(key.id)) },
+                    CharacterDetailScreen(
+                        id = key.id,
+                        onOpenLinked = { ids, title -> backStack.add(EpisodesByIdsPage(ids, title)) },
                     )
                 }
 
-                entry<LocationsPage> { Soon("LocationsPage") }
-                entry<LocationDetailPage> { key -> Soon("LocationDetailPage(id=${key.id})") }
+                entry<LocationsPage> {
+                    LocationsScreen(onOpenDetail = { backStack.add(LocationDetailPage(it)) })
+                }
+                entry<LocationDetailPage> { key ->
+                    LocationDetailScreen(
+                        id = key.id,
+                        onOpenLinked = { ids, title -> backStack.add(CharactersByIdsPage(ids, title)) },
+                    )
+                }
 
-                entry<EpisodesPage> { Soon("EpisodesPage") }
-                entry<EpisodeDetailPage> { key -> Soon("EpisodeDetailPage(id=${key.id})") }
+                entry<EpisodesPage> {
+                    EpisodesScreen(onOpenDetail = { backStack.add(EpisodeDetailPage(it)) })
+                }
+                entry<EpisodeDetailPage> { key ->
+                    EpisodeDetailScreen(
+                        id = key.id,
+                        onOpenLinked = { ids, title -> backStack.add(CharactersByIdsPage(ids, title)) },
+                    )
+                }
 
-                entry<CharactersByIdsPage> { key -> Soon("CharactersByIdsPage(${key.title})") }
-                entry<EpisodesByIdsPage> { key -> Soon("EpisodesByIdsPage(${key.title})") }
+                entry<CharactersByIdsPage> { key ->
+                    CharactersByIdsScreen(
+                        ids = key.ids,
+                        title = key.title,
+                        onOpenDetail = { backStack.add(CharacterDetailPage(it)) },
+                    )
+                }
+                entry<EpisodesByIdsPage> { key ->
+                    EpisodesByIdsScreen(
+                        ids = key.ids,
+                        title = key.title,
+                        onOpenDetail = { backStack.add(EpisodeDetailPage(it)) },
+                    )
+                }
 
                 entry<ProfilePage> { Soon("ProfilePage") }
                 entry<LabPage> {
