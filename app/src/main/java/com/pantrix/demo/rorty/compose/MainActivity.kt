@@ -4,8 +4,14 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pantrix.demo.rorty.compose.app.RortyNavDisplay
+import com.pantrix.demo.rorty.compose.app.ThemeController
+import com.pantrix.demo.rorty.compose.app.ThemeMode
 import com.pantrix.demo.rorty.compose.ui.theme.PantrixRortyTheme
+import org.koin.compose.koinInject
 
 /**
  * The only Activity. Everything above it is Compose, which is also why the SDK's automatic screen
@@ -18,7 +24,16 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            PantrixRortyTheme {
+            // The theme lives above the navigation because the Profile screen writes it and the whole
+            // app reads it — a view model scoped to that tab would be gone the moment you left it.
+            val themeController = koinInject<ThemeController>()
+            val mode by themeController.mode.collectAsStateWithLifecycle()
+            val dark = when (mode) {
+                ThemeMode.SYSTEM -> isSystemInDarkTheme()
+                ThemeMode.LIGHT -> false
+                ThemeMode.DARK -> true
+            }
+            PantrixRortyTheme(darkTheme = dark) {
                 RortyNavDisplay()
             }
         }

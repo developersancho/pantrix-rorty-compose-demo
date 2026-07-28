@@ -35,6 +35,7 @@ import com.pantrix.demo.rorty.compose.ui.detail.EpisodeDetailScreen
 import com.pantrix.demo.rorty.compose.ui.detail.LocationDetailScreen
 import com.pantrix.demo.rorty.compose.ui.episodes.EpisodesScreen
 import com.pantrix.demo.rorty.compose.ui.locations.LocationsScreen
+import com.pantrix.demo.rorty.compose.ui.profile.ProfileScreen
 
 /**
  * The whole navigation surface: five owned back stacks, one `NavDisplay`, one line of Pantrix.
@@ -155,7 +156,7 @@ fun RortyNavDisplay() {
                     )
                 }
 
-                entry<ProfilePage> { Soon("ProfilePage") }
+                entry<ProfilePage> { ProfileScreen() }
                 entry<LabPage> {
                     Soon("LabPage", "Open Crash Lab") { backStack.add(CrashLabPage) }
                 }

@@ -1,5 +1,6 @@
 package com.pantrix.demo.rorty.compose.di
 
+import com.pantrix.demo.rorty.compose.app.ThemeController
 import com.pantrix.demo.rorty.compose.ui.characters.CharactersViewModel
 import com.pantrix.demo.rorty.compose.ui.crosslist.CharactersByIdsViewModel
 import com.pantrix.demo.rorty.compose.ui.crosslist.EpisodesByIdsViewModel
@@ -8,6 +9,8 @@ import com.pantrix.demo.rorty.compose.ui.detail.EpisodeDetailViewModel
 import com.pantrix.demo.rorty.compose.ui.detail.LocationDetailViewModel
 import com.pantrix.demo.rorty.compose.ui.episodes.EpisodesViewModel
 import com.pantrix.demo.rorty.compose.ui.locations.LocationsViewModel
+import com.pantrix.demo.rorty.compose.ui.profile.ProfileViewModel
+import org.koin.android.ext.koin.androidContext
 import org.koin.core.module.dsl.viewModel
 import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.module
@@ -24,9 +27,14 @@ import org.koin.dsl.module
  * form and read it from Koin's parameters — `koinViewModel { parametersOf(id) }` at the call site.
  */
 val viewModelModule = module {
+    // App-wide, not per-screen: `MainActivity` reads it to pick the colour scheme and Profile writes
+    // it, so it must outlive whichever tab is on screen.
+    single { ThemeController(androidContext()) }
+
     viewModelOf(::CharactersViewModel)
     viewModelOf(::LocationsViewModel)
     viewModelOf(::EpisodesViewModel)
+    viewModelOf(::ProfileViewModel)
 
     viewModel { (id: Int) -> CharacterDetailViewModel(id, get()) }
     viewModel { (id: Int) -> LocationDetailViewModel(id, get()) }

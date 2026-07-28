@@ -55,6 +55,14 @@ android {
         // Every variant points at the local TEST backend today; only the release arm changes when a
         // production backend exists.
         buildConfigField("String", "PANTRIX_URL", "\"http://10.0.2.2:8099\"")
+        // The SDK version this app is pinned to, read from the version catalog so the Profile screen
+        // cannot drift from the dependency. `AppConstants.SDK_VERSION` would report the same value,
+        // but it is `@PantrixInternalApi` — a demo has no business reaching in there.
+        buildConfigField(
+            "String",
+            "PANTRIX_SDK_VERSION",
+            "\"${libs.versions.pantrix.get()}\"",
+        )
     }
 
     signingConfigs {
