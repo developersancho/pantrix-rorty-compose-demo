@@ -1,7 +1,7 @@
 # Pantrix Rorty — Compose demo
 
 A from-scratch **Jetpack Compose / Navigation 3 / MVI** sample app that integrates the published
-[Pantrix Android SDK](https://github.com/developersancho/pantrix-sdk-android-aar) (`1.0.0-beta.6`) and
+[Pantrix Android SDK](https://github.com/developersancho/pantrix-sdk-android-aar) (`1.0.0-beta.7`) and
 exercises every SDK surface, using the
 [Rick & Morty REST API](https://rickandmortyapi.com/documentation#rest) as its data source.
 
@@ -235,8 +235,17 @@ debug and qaTest looked healthy.
 Two fixes came out of it. In the app, SQLCipher now ships on **qaTest as well as release**, because a
 storage mode only release uses is a storage mode nobody tests. In the SDK, changing `storageEncryption` on
 an install that already has data left the database permanently unopenable — and the SDK retried opening
-it roughly every 400ms, forever. Both are fixed in the SDK's `Unreleased` section: the mismatched file is
-now discarded so the install keeps reporting, and three consecutive failures stop the retry.
+it roughly every 400ms, forever. Both shipped in **`1.0.0-beta.7`**, which is what this app pins: the
+mismatched file is now discarded so the install keeps reporting, and three consecutive failures stop the
+retry.
+
+Verified against the published artifact rather than a local build, by flipping `BuildVariant.encryptStorage`
+and installing the update over an install that already had data — the case that used to be fatal:
+
+| | guard fired | open errors | SDK disabled | events stored |
+| --- | --- | --- | --- | --- |
+| `FULL` → `NONE` over an encrypted db | 1 | 0 | 0 | 12 |
+| `NONE` → `FULL` over a plaintext db | 1 | 0 | 0 | 12 |
 
 ### `qaTest` was not obfuscated, so it could not have caught an obfuscation bug
 
