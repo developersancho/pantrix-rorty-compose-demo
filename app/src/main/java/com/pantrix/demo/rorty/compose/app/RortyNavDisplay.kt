@@ -34,6 +34,8 @@ import com.pantrix.demo.rorty.compose.ui.detail.CharacterDetailScreen
 import com.pantrix.demo.rorty.compose.ui.detail.EpisodeDetailScreen
 import com.pantrix.demo.rorty.compose.ui.detail.LocationDetailScreen
 import com.pantrix.demo.rorty.compose.ui.episodes.EpisodesScreen
+import com.pantrix.demo.rorty.compose.ui.lab.CrashLabScreen
+import com.pantrix.demo.rorty.compose.ui.lab.LabScreen
 import com.pantrix.demo.rorty.compose.ui.locations.LocationsScreen
 import com.pantrix.demo.rorty.compose.ui.profile.ProfileScreen
 
@@ -158,32 +160,10 @@ fun RortyNavDisplay() {
 
                 entry<ProfilePage> { ProfileScreen() }
                 entry<LabPage> {
-                    Soon("LabPage", "Open Crash Lab") { backStack.add(CrashLabPage) }
+                    LabScreen(onOpenCrashLab = { backStack.add(CrashLabPage) })
                 }
-                entry<CrashLabPage> { Soon("CrashLabPage") }
+                entry<CrashLabPage> { CrashLabScreen() }
             },
         )
-    }
-}
-
-/** Placeholder for the destinations Faz 3–5 fill in. Still a real, tracked screen. */
-@Composable
-private fun Soon(
-    title: String,
-    actionLabel: String? = null,
-    onAction: (() -> Unit)? = null,
-) {
-    Column(
-        modifier = Modifier.fillMaxSize().padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        Text(text = title, style = MaterialTheme.typography.headlineSmall)
-        if (actionLabel != null && onAction != null) {
-            // `trackedClick`, not `Modifier.trackClick`: Button already owns a click handler, and the
-            // modifier form would install a second one on top of it.
-            Button(onClick = trackedClick(actionLabel.lowercase().replace(' ', '_'), onClick = onAction)) {
-                Text(actionLabel)
-            }
-        }
     }
 }

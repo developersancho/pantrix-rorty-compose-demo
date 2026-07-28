@@ -8,6 +8,7 @@ import com.pantrix.demo.rorty.compose.ui.detail.CharacterDetailViewModel
 import com.pantrix.demo.rorty.compose.ui.detail.EpisodeDetailViewModel
 import com.pantrix.demo.rorty.compose.ui.detail.LocationDetailViewModel
 import com.pantrix.demo.rorty.compose.ui.episodes.EpisodesViewModel
+import com.pantrix.demo.rorty.compose.ui.lab.LabViewModel
 import com.pantrix.demo.rorty.compose.ui.locations.LocationsViewModel
 import com.pantrix.demo.rorty.compose.ui.profile.ProfileViewModel
 import org.koin.android.ext.koin.androidContext
@@ -35,6 +36,7 @@ val viewModelModule = module {
     viewModelOf(::LocationsViewModel)
     viewModelOf(::EpisodesViewModel)
     viewModelOf(::ProfileViewModel)
+    viewModelOf(::LabViewModel)
 
     viewModel { (id: Int) -> CharacterDetailViewModel(id, get()) }
     viewModel { (id: Int) -> LocationDetailViewModel(id, get()) }
