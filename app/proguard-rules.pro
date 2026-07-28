@@ -20,17 +20,29 @@
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
 
-# ── Pantrix: keep the screen names readable ──────────────────────────────────
+# ── Pantrix screen names under R8: no rule needed here ───────────────────────
 #
 # `PantrixScreenNavTracking` reports a screen as `key::class.simpleName`, and the backend does NOT
-# deobfuscate screen names — only crash stack traces go through the mapping. Without this rule every
-# screen on a minified build reports as `a`, `b`, `c`: the app looks instrumented and the dashboard
-# is useless, with nothing failing to say so.
+# deobfuscate screen names — only crash stack traces go through the mapping. So if R8 renamed the
+# NavKeys, every screen on a release build would report as a letter and nothing would fail to say so.
 #
-# `-keepnames` keeps the NAME while still letting R8 shrink and optimise; a full `-keep` would also
-# stop it removing anything unreachable.
+# It does not, and this app needs no rule for it: `pantrix-compose-navigation3` ships
 #
-# The Views demo needs the same rule for Fragments and Activities. In Compose the screen identity
-# moved to the NavKeys, so this is where the rule has to point instead. Verified in Faz 6 by reading
-# the screen names off a real qaTest build, not by trusting that the rule matches.
--keepnames class * implements androidx.navigation3.runtime.NavKey
+#     -keepnames class * implements androidx.navigation3.runtime.NavKey
+#
+# as a CONSUMER rule, so it arrives with the dependency that needs it. An app-level copy would be a
+# byte-identical duplicate. Measured, not assumed: with no app rule at all, a release `mapping.txt`
+# keeps every NavKey name while renaming 73 of this app's 87 classes (`BuildVariant -> cj`,
+# `RootTab -> g62`, and the keys' own `$$serializer` / `$Companion`). A probe object that implements
+# `NavKey` survived; a byte-identical one that does not was renamed to `s43`.
+#
+# ── Why `qaTest` is not debuggable ───────────────────────────────────────────
+#
+# AGP turns obfuscation OFF for a debuggable build type even when `isMinifyEnabled = true`, so while
+# `qaTest` had `isDebuggable = true` it showed readable screen names no matter what the rules said —
+# any check run there passed for the wrong reason, and only a `release` build could tell the truth.
+#
+# `qaTest` is now `isDebuggable = false`, which is the point of the variant: minified, obfuscated and
+# signed like release, but pointed at the test backend. Measured after the switch — 72 of the app's
+# 85 classes renamed, all 11 NavKeys kept — so it is now a faithful stand-in for release, and the
+# crash/mapping path can be exercised on the variant that is actually shipped-shaped.

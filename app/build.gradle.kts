@@ -104,7 +104,7 @@ android {
             initWith(getByName("release"))
             applicationIdSuffix = ".test"
             versionNameSuffix = "-test"
-            isDebuggable = true
+            isDebuggable = false
             // qaTest is a custom build type with no counterpart in the SDK library
             // modules (they only have debug/release). With the `projects.*` deps,
             // variant-aware resolution needs an explicit fallback, or every project

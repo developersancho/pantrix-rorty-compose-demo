@@ -15,5 +15,5 @@ import org.koin.core.module.Module
  */
 val appModules: List<Module> = listOf(
     dataModule,
-    // viewModelModule lands here in Faz 2.
+    viewModelModule,
 )
