@@ -279,11 +279,10 @@ every event this backend holds, `okhttp` reports `HTTP_2` when it can and `urlse
 while `ktor` has reported it on **none** of its requests. Ktor abstracts the engine away; the OkHttp
 interceptor sits close enough to the socket to know. `dnsAddress` goes the same way.
 
-### A stack has one frame per *physical* frame, not per inlined one — on purpose
+### The frames R8 inlined were missing from every stack — now they are not
 
-Worth knowing before you go looking for a bug that is not there. The retrace is correct —
-`i3.b` → `CrashLabScreenKt.crashDeepC` at line 139 — but `crashDeepA` and `crashDeepB` never appear,
-even though `mapping.txt` records the whole inline chain for that one method:
+The retrace was always correct — `i3.b` → `CrashLabScreenKt.crashDeepC` at line 139 — but `crashDeepA`
+and `crashDeepB` never appeared, even though `mapping.txt` records the whole chain for that one method:
 
 ```
 126:133:...crashDeepC():139:139 -> b
@@ -292,17 +291,33 @@ even though `mapping.txt` records the whole inline chain for that one method:
 126:133:...CrashLabScreen$lambda$0$1$0():59 -> b
 ```
 
-R8 inlined three one-line functions into a single physical frame, and the backend reports one frame for
-it — R8's `topFrame`, the innermost, which is the actual throw site.
+R8 inlines one-line functions into their call site, so three source functions share one physical frame.
+The backend read only R8's `topFrame` — the innermost, and the correct blame frame — and dropped the
+rest.
 
-That is a deliberate contract, not an Android oversight: the symbolication result is rewritten
-**positionally** over the frames the device sent, so a resolver must return exactly one frame per input
-frame. The Apple resolver documents having to fight the same thing from the other direction — Sentry's
-symbolicator *does* expand inline frames, which made an 18-frame stack come back as 22 and wrote app
-symbols onto `libdispatch` frames until it was made to group by `original_index` and pick one
-representative per group.
+It was not an Android oversight. The symbolication result is rewritten **positionally** over the frames
+the device sent, so a resolver had to return exactly one frame per input frame; the Apple resolver had
+to fight the same contract from the other direction, since Sentry's symbolicator *does* expand inline
+frames — which made an 18-frame stack come back as 22 and wrote app symbols onto `libdispatch` frames
+until it was made to group by `original_index` and collapse each group to one representative.
 
-So both platforms deliberately collapse an inline group to its most useful frame. Grouping and the blame
-frame are unaffected; what you do not get is the intermediate context Crashlytics would show. Changing
-that is a cross-platform product decision — the resolver interface and the rewrite step would both have
-to go from 1:1 to 1:N — not a fix.
+**The contract is now 1:N.** A `ResolvedFrame` carries an `originIndex` saying which input frame it came
+from, so the binding no longer depends on lengths matching, and both resolvers expand. The rule that
+keeps grouping stable is that the **first** frame of a group must still be the old representative —
+R8's innermost link on Android, the first non-`<compiler-generated>` frame on iOS — because
+`CrashFingerprinter` picks the blame frame from there.
+
+Measured end to end after the change:
+
+| | before | after |
+| --- | --- | --- |
+| Android, `i3.b(:130)` | 1 frame (`crashDeepC`) | **5** (`crashDeepC` → `crashDeepB` → `crashDeepA` → the lambda → R8's synthetic wrapper) |
+| Android `crash_id` | `6158480f…5f19d9` | `6158480f…5f19d9` — the new crash **joined** the existing group |
+| iOS, the `@main` frame | one symbol at that address | two (`$main()` **and** `main`) |
+| iOS groups | 4 | 4, all counts unchanged |
+
+One thing the expansion made visible on Android that iOS does not show: R8's synthetic lambda wrappers
+(`AlertDialogKt$$ExternalSyntheticLambda1.invoke`) are now real frames in the stack. iOS drops its
+equivalent because symbolicator labels it `<compiler-generated>`; R8 has no such marker, and filtering
+on a name pattern would risk dropping a real class. It sits at the outer end of the chain, so the blame
+frame and the grouping are unaffected — it is noise, not a wrong answer.
