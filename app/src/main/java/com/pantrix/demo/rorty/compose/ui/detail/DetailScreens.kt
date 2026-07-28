@@ -24,6 +24,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
+import com.pantrix.compose.TrackScroll
 import com.pantrix.compose.trackedClick
 import com.pantrix.demo.rorty.compose.core.mvi.DetailContract
 import com.pantrix.demo.rorty.compose.core.mvi.DetailViewModel
@@ -39,7 +40,7 @@ fun CharacterDetailScreen(
     id: Int,
     onOpenLinked: (List<Int>, String) -> Unit,
     viewModel: CharacterDetailViewModel = koinViewModel { parametersOf(id) },
-) = DetailScaffold(viewModel, onOpenLinked) { character: Character ->
+) = DetailScaffold(viewModel, onOpenLinked, "character_detail") { character: Character ->
     AsyncImage(
         model = character.imageUrl,
         contentDescription = null,
@@ -60,7 +61,7 @@ fun LocationDetailScreen(
     id: Int,
     onOpenLinked: (List<Int>, String) -> Unit,
     viewModel: LocationDetailViewModel = koinViewModel { parametersOf(id) },
-) = DetailScaffold(viewModel, onOpenLinked) { location: Location ->
+) = DetailScaffold(viewModel, onOpenLinked, "location_detail") { location: Location ->
     Text(location.name, style = MaterialTheme.typography.headlineMedium)
     Field("Type", location.type)
     Field("Dimension", location.dimension)
@@ -72,7 +73,7 @@ fun EpisodeDetailScreen(
     id: Int,
     onOpenLinked: (List<Int>, String) -> Unit,
     viewModel: EpisodeDetailViewModel = koinViewModel { parametersOf(id) },
-) = DetailScaffold(viewModel, onOpenLinked) { episode: Episode ->
+) = DetailScaffold(viewModel, onOpenLinked, "episode_detail") { episode: Episode ->
     Text(episode.name, style = MaterialTheme.typography.headlineMedium)
     Field("Code", episode.code)
     Field("Air date", episode.airDate)
@@ -90,9 +91,17 @@ fun EpisodeDetailScreen(
 private fun <T> DetailScaffold(
     viewModel: DetailViewModel<T>,
     onOpenLinked: (List<Int>, String) -> Unit,
+    scrollTrackingName: String,
     content: @Composable (T) -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val scrollState = rememberScrollState()
+
+    // The `ScrollState` overload, as opposed to the `LazyListState` one the lists use. It reports
+    // `scrollOffset` in pixels rather than `firstVisibleItem`, which is the only sensible answer for
+    // a column that has no items to count — and the reason the SDK ships two overloads instead of
+    // one. Same rule either way: one event per settled gesture, not per frame.
+    TrackScroll(name = scrollTrackingName, state = scrollState)
 
     LaunchedEffect(Unit) { viewModel.onIntent(DetailContract.Intent.Appear) }
     LaunchedEffect(viewModel) {
@@ -108,7 +117,7 @@ private fun <T> DetailScaffold(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
+                    .verticalScroll(scrollState)
                     .padding(24.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,

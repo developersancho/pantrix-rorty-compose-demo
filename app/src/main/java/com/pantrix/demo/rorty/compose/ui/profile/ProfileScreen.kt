@@ -31,6 +31,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.pantrix.compose.TrackScroll
 import com.pantrix.compose.trackedClick
 import com.pantrix.demo.rorty.compose.BuildConfig
 import com.pantrix.demo.rorty.compose.app.BuildVariant
@@ -41,6 +42,12 @@ import org.koin.androidx.compose.koinViewModel
 fun ProfileScreen(viewModel: ProfileViewModel = koinViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
+    val scrollState = rememberScrollState()
+
+    // The `ScrollState` overload again, on a screen that genuinely overflows — which is what makes
+    // the number readable: `scrollOffset` in pixels answers "does anyone ever reach the build card",
+    // where `firstVisibleItem` would have nothing to count.
+    TrackScroll(name = "profile_column", state = scrollState)
 
     LaunchedEffect(Unit) { viewModel.onIntent(ProfileContract.Intent.Appear) }
     LaunchedEffect(viewModel) {
@@ -55,7 +62,7 @@ fun ProfileScreen(viewModel: ProfileViewModel = koinViewModel()) {
         Column(
             modifier = Modifier
                 .weight(1f)
-                .verticalScroll(rememberScrollState())
+                .verticalScroll(scrollState)
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {

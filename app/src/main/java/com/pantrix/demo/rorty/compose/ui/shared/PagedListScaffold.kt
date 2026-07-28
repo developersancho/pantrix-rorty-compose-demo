@@ -1,5 +1,6 @@
 package com.pantrix.demo.rorty.compose.ui.shared
 
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -20,6 +21,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.pantrix.compose.TrackInteractions
 import com.pantrix.compose.TrackScroll
 import com.pantrix.demo.rorty.compose.core.mvi.PagedListState
 
@@ -49,6 +51,11 @@ fun <T> PagedListScaffold(
 ) {
     val listState = rememberLazyListState()
 
+    // Shared with the search field below, so the SDK observes the SAME source the field already uses
+    // rather than installing anything of its own. That is the whole point of the API: it watches, it
+    // does not intercept, so a field keeps every handler it had.
+    val searchInteractions = remember { MutableInteractionSource() }
+
     // Prefetch trigger: five rows from the end, matching the sibling demos so all four apps issue a
     // comparable number of page requests. `derivedStateOf` so this recomputes on scroll without
     // recomposing the whole screen.
@@ -65,12 +72,19 @@ fun <T> PagedListScaffold(
     // reports the resting `firstVisibleItem`.
     TrackScroll(name = scrollTrackingName, state = listState)
 
+    // Hover, focus and drag — the three interactions a click modifier cannot see. Here it answers
+    // "how many people open the search box and then type nothing", which no `ui_click` can: a text
+    // field gains focus without ever being clicked (keyboard, D-pad, autofill). `ui_hover` needs a
+    // pointer, so it stays quiet on a touch-only phone and earns its place on desktop and TV.
+    TrackInteractions(name = "${scrollTrackingName}_search", interactionSource = searchInteractions)
+
     Column(modifier = modifier.fillMaxSize()) {
         OutlinedTextField(
             value = state.query,
             onValueChange = onQueryChanged,
             label = { Text(searchLabel) },
             singleLine = true,
+            interactionSource = searchInteractions,
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
         )
 
