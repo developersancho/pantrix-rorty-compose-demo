@@ -279,9 +279,30 @@ every event this backend holds, `okhttp` reports `HTTP_2` when it can and `urlse
 while `ktor` has reported it on **none** of its requests. Ktor abstracts the engine away; the OkHttp
 interceptor sits close enough to the socket to know. `dnsAddress` goes the same way.
 
-### R8's inlined frames are not expanded
+### A stack has one frame per *physical* frame, not per inlined one — on purpose
 
-The retrace is correct — `i3.b` → `CrashLabScreenKt.crashDeepC` at line 139 — but `crashDeepA` and
-`crashDeepB` are missing from the reported stack, even though `mapping.txt` records the inline chain for
-that method (`crashDeepC():139 → crashDeepB():138 → crashDeepA():137`). The blame frame and the line are
-right, so grouping is unaffected; what is lost is two frames of context the mapping could have restored.
+Worth knowing before you go looking for a bug that is not there. The retrace is correct —
+`i3.b` → `CrashLabScreenKt.crashDeepC` at line 139 — but `crashDeepA` and `crashDeepB` never appear,
+even though `mapping.txt` records the whole inline chain for that one method:
+
+```
+126:133:...crashDeepC():139:139 -> b
+126:133:...crashDeepB():138     -> b
+126:133:...crashDeepA():137     -> b
+126:133:...CrashLabScreen$lambda$0$1$0():59 -> b
+```
+
+R8 inlined three one-line functions into a single physical frame, and the backend reports one frame for
+it — R8's `topFrame`, the innermost, which is the actual throw site.
+
+That is a deliberate contract, not an Android oversight: the symbolication result is rewritten
+**positionally** over the frames the device sent, so a resolver must return exactly one frame per input
+frame. The Apple resolver documents having to fight the same thing from the other direction — Sentry's
+symbolicator *does* expand inline frames, which made an 18-frame stack come back as 22 and wrote app
+symbols onto `libdispatch` frames until it was made to group by `original_index` and pick one
+representative per group.
+
+So both platforms deliberately collapse an inline group to its most useful frame. Grouping and the blame
+frame are unaffected; what you do not get is the intermediate context Crashlytics would show. Changing
+that is a cross-platform product decision — the resolver interface and the rewrite step would both have
+to go from 1:1 to 1:N — not a fix.
