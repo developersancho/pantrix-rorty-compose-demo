@@ -8,7 +8,7 @@ lifecycleRuntimeKtx = "2.11.0"
 activityCompose = "1.13.0"
 kotlin = "2.4.10"
 composeBom = "2026.06.01"
-pantrix = "1.0.0-beta.7"
+pantrix = "1.0.0-beta.8"
 # Navigation 3. 1.1.3 is the current STABLE line (1.2.0-alpha06 exists); it is also what the SDK's
 # `pantrix-compose-navigation3` is compiled against, so this is the version the integration is proven on.
 nav3 = "1.1.3"
