@@ -29,7 +29,11 @@ pantrix {
         // alias for the host loopback and only means anything from inside the emulator — the SDK's
         // runtime url (PANTRIX_URL below) uses that, this does not. Swapping them costs a build-long
         // socket timeout with no useful error.
-        apiUrl = "http://localhost:8099/api"
+        apiUrl = if (name == "release") {
+            "https://api.pantrixapp.com/api"
+        } else {
+            "http://localhost:8099/api"
+        }
         // debug is not minified, so R8 never runs and there is no mapping.txt to upload. An absent
         // key also disables the variant rather than failing the build on a machine with no creds.
         enabled = name != "debug" && key.isNotEmpty()
@@ -97,7 +101,8 @@ android {
                 "proguard-rules.pro"
             )
             resValue("string", "app_name", "RTCompose")
-            buildConfigField("String", "PANTRIX_TOKEN", "\"px_yq7bml451uguz6kyexb30lmr5wm8kfgz4xti\"")
+            buildConfigField("String", "PANTRIX_URL", "\"https://api.pantrixapp.com\"")
+            buildConfigField("String", "PANTRIX_TOKEN", "\"px_5xo7nxnp4tgbbsq7b8836lxzxcd0q3j09rp0\"")
         }
 
         debug {
