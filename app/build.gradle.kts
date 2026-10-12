@@ -6,6 +6,8 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.pantrix.gradle)
+    alias(libs.plugins.detekt)
+    alias(libs.plugins.kover)
 }
 
 // R8 mapping upload. The CI keys are secrets, so they come from the gitignored local.properties (or
@@ -140,6 +142,25 @@ android {
         compose = true
         buildConfig = true
         resValues = true
+    }
+
+    lint {
+        // Pantrix MQ reads SARIF. From AGP 9.3 on the report is always written and this line goes away.
+        sarifReport = true
+    }
+}
+
+detekt {
+    buildUponDefaultConfig = true
+    // Paths in the reports are relative to the repository, not to this machine.
+    basePath = rootProject.projectDir.absolutePath
+    // detekt reports and does not stop the build: what may be merged is for Pantrix MQ to say.
+    ignoreFailures = true
+}
+
+tasks.withType<io.gitlab.arturbosch.detekt.Detekt>().configureEach {
+    reports {
+        sarif.required.set(true)
     }
 }
 
