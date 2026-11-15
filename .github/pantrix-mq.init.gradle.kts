@@ -6,11 +6,14 @@
 //         lintReportDebug detekt koverXmlReportDebug mqAnalyze --continue -Pmq.project=rorty-android
 //
 // The packages are private, and GitHub Packages asks for a token even to read them: gpr.user and gpr.token of
-// ~/.gradle/gradle.properties, or GPR_USER and GPR_TOKEN in the environment, a token that may read packages.
+// ~/.gradle/gradle.properties, or GPR_USER and GPR_TOKEN in the environment, a token that may read packages. The
+// version of MQ is in pantrix-mq.version next to this script, which the CI reads for pmq too.
 
 import io.github.developersancho.pantrix.mq.gradle.PantrixMqPlugin
 
 initscript {
+    // The block is compiled on its own: it reaches nothing declared further down in the script.
+    val version = sourceFile!!.resolveSibling("pantrix-mq.version").readText().trim()
     val saved = java.util.Properties().apply {
         val home = System.getenv("GRADLE_USER_HOME") ?: "${System.getProperty("user.home")}/.gradle"
         val file = java.io.File(home, "gradle.properties")
@@ -26,7 +29,7 @@ initscript {
         }
     }
     dependencies {
-        classpath("io.github.developersancho.pantrix.mq:pantrix-mq-scanner-gradle-plugin:0.2.0")
+        classpath("io.github.developersancho.pantrix.mq:pantrix-mq-scanner-gradle-plugin:$version")
     }
 }
 

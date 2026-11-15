@@ -3,7 +3,8 @@
 #
 # MQ comes from GitHub Packages of developersancho/pantrix-mq through .github/pantrix-mq.init.gradle.kts, so the
 # build itself needs no token. MQ_PACKAGES_TOKEN is a token that only reads packages. A pull request from a fork has
-# no secrets: its checks run, and MQ does not.
+# no secrets: its checks run, and MQ does not. The version of MQ is in .github/pantrix-mq.version, for the init script
+# and for pmq alike.
 name: CI
 
 on:
@@ -30,7 +31,6 @@ jobs:
       checks: write
       pull-requests: write
     env:
-      MQ_VERSION: 0.2.0
       GPR_USER: ${{ github.repository_owner }}
       GPR_TOKEN: ${{ secrets.MQ_PACKAGES_TOKEN }}
     steps:
@@ -68,11 +68,12 @@ jobs:
       - name: pmq, from GitHub Packages
         if: ${{ !cancelled() && env.GPR_TOKEN != '' }}
         run: |
+          version="$(cat .github/pantrix-mq.version)"
           base="https://maven.pkg.github.com/developersancho/pantrix-mq/io/github/developersancho/pantrix/mq"
           curl -fsSL -u "$GPR_USER:$GPR_TOKEN" -o "$RUNNER_TEMP/pmq.zip" \
-            "$base/pantrix-mq-scanner-cli/$MQ_VERSION/pantrix-mq-scanner-cli-$MQ_VERSION.zip"
+            "$base/pantrix-mq-scanner-cli/$version/pantrix-mq-scanner-cli-$version.zip"
           unzip -q "$RUNNER_TEMP/pmq.zip" -d "$RUNNER_TEMP"
-          echo "$RUNNER_TEMP/pmq-$MQ_VERSION/bin" >> "$GITHUB_PATH"
+          echo "$RUNNER_TEMP/pmq-$version/bin" >> "$GITHUB_PATH"
       - name: MQ's verdict
         id: verdict
         if: ${{ !cancelled() && env.GPR_TOKEN != '' && hashFiles('build/mq/report.mqr') != '' }}
