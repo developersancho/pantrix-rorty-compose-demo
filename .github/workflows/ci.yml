@@ -1,0 +1,95 @@
+# The checks of the app on every push to master and every pull request: Android Lint, detekt and the unit tests with
+# Kover, and Pantrix MQ's verdict on what they found.
+#
+# MQ comes from GitHub Packages of developersancho/pantrix-mq through .github/pantrix-mq.init.gradle.kts, so the
+# build itself needs no token. MQ_PACKAGES_TOKEN is a token that only reads packages. A pull request from a fork has
+# no secrets: its checks run, and MQ does not.
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  # A newer push to a pull request makes the run for the older one pointless. On master every run is kept.
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  checks:
+    name: Lint, detekt, unit tests and MQ
+    runs-on: ubuntu-26.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      # For MQ's verdict: a check on the commit, and on a pull request a comment that every run updates.
+      checks: write
+      pull-requests: write
+    env:
+      MQ_VERSION: 0.2.0
+      GPR_USER: ${{ github.repository_owner }}
+      GPR_TOKEN: ${{ secrets.MQ_PACKAGES_TOKEN }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          # The whole history: MQ measures a pull request from where it left master, and looks back through master
+          # for the nearest commit its store holds the analysis of.
+          fetch-depth: 0
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: zulu
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+        with:
+          # The open-source cache of the action. Its default is a proprietary one that comes with terms of use.
+          cache-provider: basic
+      # MQ's store of baselines is a directory outside the checkout that the cache carries from run to run. A run of
+      # master puts its analysis in it and saves it under a new key; a pull request reads the newest that master saved.
+      - name: Restore MQ's store of baselines
+        if: env.GPR_TOKEN != ''
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/mq-baselines
+          key: mq-baselines-v0-${{ github.sha }}
+          restore-keys: mq-baselines-v0-
+      - name: Android Lint, detekt and the unit tests with Kover, and MQ's analysis of them
+        run: |
+          mq=()
+          if [ -n "$GPR_TOKEN" ]; then
+            mq=(--init-script .github/pantrix-mq.init.gradle.kts mqAnalyze -Pmq.project=rorty-android
+              "-Pmq.baselines=$RUNNER_TEMP/mq-baselines")
+          fi
+          ./gradlew lintReportDebug detekt koverXmlReportDebug --continue "${mq[@]}"
+      - name: pmq, from GitHub Packages
+        if: ${{ !cancelled() && env.GPR_TOKEN != '' }}
+        run: |
+          base="https://maven.pkg.github.com/developersancho/pantrix-mq/io/github/developersancho/pantrix/mq"
+          curl -fsSL -u "$GPR_USER:$GPR_TOKEN" -o "$RUNNER_TEMP/pmq.zip" \
+            "$base/pantrix-mq-scanner-cli/$MQ_VERSION/pantrix-mq-scanner-cli-$MQ_VERSION.zip"
+          unzip -q "$RUNNER_TEMP/pmq.zip" -d "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/pmq-$MQ_VERSION/bin" >> "$GITHUB_PATH"
+      - name: MQ's verdict
+        id: verdict
+        if: ${{ !cancelled() && env.GPR_TOKEN != '' && hashFiles('build/mq/report.mqr') != '' }}
+        # The verdict is the status of the step. Master keeps its analysis, which its pull requests are compared with.
+        run: >
+          pmq finalize
+          --bundle build/mq/report.mqr
+          --baselines "$RUNNER_TEMP/mq-baselines"
+          --summary "$GITHUB_STEP_SUMMARY"
+          $MQ_KEEP --github
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          MQ_KEEP: ${{ github.event_name == 'push' && '--keep' || '' }}
+      - name: Save MQ's store of baselines
+        # Whatever the gate said: the analysis is kept all the same.
+        if: ${{ !cancelled() && github.event_name == 'push' && steps.verdict.outcome != 'skipped' }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/mq-baselines
+          key: mq-baselines-v0-${{ github.sha }}
