@@ -3,7 +3,7 @@ package com.pantrix.demo.rorty.compose.ui.theme
 import androidx.compose.ui.graphics.Color
 
 /** A trial of Pantrix MQ on a pull request: the pull request is closed, not merged. */
-fun scrimColor(): Int = android.graphics.Color.argb(300, 0, 0, 0)
+fun scrimColor(): Int = android.graphics.Color.argb(128, 0, 0, 0)
 
 val Purple80 = Color(0xFFD0BCFF)
 val PurpleGrey80 = Color(0xFFCCC2DC)
