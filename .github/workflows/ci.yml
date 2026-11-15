@@ -77,13 +77,18 @@ jobs:
       - name: MQ's verdict
         id: verdict
         if: ${{ !cancelled() && env.GPR_TOKEN != '' && hashFiles('build/mq/report.mqr') != '' }}
-        # The verdict is the status of the step. Master keeps its analysis, which its pull requests are compared with.
-        run: >
-          pmq finalize
-          --bundle build/mq/report.mqr
-          --baselines "$RUNNER_TEMP/mq-baselines"
-          --summary "$GITHUB_STEP_SUMMARY"
-          $MQ_KEEP --github
+        # The verdict is MQ's check, which says it once: the step fails only when MQ could not judge at all (1), and
+        # not when the gate failed (2) or is incomplete (3). Master keeps its analysis, which its pull requests are
+        # compared with.
+        run: |
+          status=0
+          pmq finalize \
+            --bundle build/mq/report.mqr \
+            --baselines "$RUNNER_TEMP/mq-baselines" \
+            --summary "$GITHUB_STEP_SUMMARY" \
+            $MQ_KEEP --github || status=$?
+          if [ "$status" -eq 2 ] || [ "$status" -eq 3 ]; then status=0; fi
+          exit "$status"
         env:
           GITHUB_TOKEN: ${{ github.token }}
           MQ_KEEP: ${{ github.event_name == 'push' && '--keep' || '' }}
