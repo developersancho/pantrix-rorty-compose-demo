@@ -91,3 +91,8 @@ class RortyApp : Application() {
         }
     }
 }
+
+/** A trial of MQ on GitHub: equals without hashCode, which the catalogue stops a change for. */
+internal class TrialName(val value: String) {
+    override fun equals(other: Any?): Boolean = other is TrialName && other.value == value
+}
