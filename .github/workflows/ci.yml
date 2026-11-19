@@ -27,6 +27,8 @@ jobs:
     timeout-minutes: 30
     permissions:
       contents: read
+      # For MQ's store of baselines: the artifacts master's runs left, which pmq lists and downloads.
+      actions: read
       # For MQ's verdict: a check on the commit, and on a pull request a comment that every run updates.
       checks: write
       pull-requests: write
@@ -48,15 +50,23 @@ jobs:
         with:
           # The open-source cache of the action. Its default is a proprietary one that comes with terms of use.
           cache-provider: basic
-      # MQ's store of baselines is a directory outside the checkout that the cache carries from run to run. A run of
-      # master puts its analysis in it and saves it under a new key; a pull request reads the newest that master saved.
-      - name: Restore MQ's store of baselines
+      - name: pmq, from GitHub Packages
         if: env.GPR_TOKEN != ''
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ${{ runner.temp }}/mq-baselines
-          key: mq-baselines-v0-${{ github.sha }}
-          restore-keys: mq-baselines-v0-
+        run: |
+          version="$(cat .github/pantrix-mq.version)"
+          base="https://maven.pkg.github.com/developersancho/pantrix-mq/io/github/developersancho/pantrix/mq"
+          curl -fsSL -u "$GPR_USER:$GPR_TOKEN" -o "$RUNNER_TEMP/pmq.zip" \
+            "$base/pantrix-mq-scanner-cli/$version/pantrix-mq-scanner-cli-$version.zip"
+          unzip -q "$RUNNER_TEMP/pmq.zip" -d "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/pmq-$version/bin" >> "$GITHUB_PATH"
+      # MQ's store of baselines is a directory outside the checkout. A run of a push to master keeps its analysis in it
+      # and uploads what it kept as an artifact named mq-baselines; every run brings the baselines of the commits
+      # before it back from those artifacts, and takes one only from a run of a push to master in this repository.
+      - name: MQ's store of baselines, from the artifacts master's runs left
+        if: env.GPR_TOKEN != ''
+        run: pmq baselines fetch --github --into "$RUNNER_TEMP/mq-baselines"
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
       - name: Android Lint, detekt and the unit tests with Kover, and MQ's analysis of them
         run: |
           mq=()
@@ -65,15 +75,6 @@ jobs:
               "-Pmq.baselines=$RUNNER_TEMP/mq-baselines")
           fi
           ./gradlew lintReportDebug detekt koverXmlReportDebug --continue "${mq[@]}"
-      - name: pmq, from GitHub Packages
-        if: ${{ !cancelled() && env.GPR_TOKEN != '' }}
-        run: |
-          version="$(cat .github/pantrix-mq.version)"
-          base="https://maven.pkg.github.com/developersancho/pantrix-mq/io/github/developersancho/pantrix/mq"
-          curl -fsSL -u "$GPR_USER:$GPR_TOKEN" -o "$RUNNER_TEMP/pmq.zip" \
-            "$base/pantrix-mq-scanner-cli/$version/pantrix-mq-scanner-cli-$version.zip"
-          unzip -q "$RUNNER_TEMP/pmq.zip" -d "$RUNNER_TEMP"
-          echo "$RUNNER_TEMP/pmq-$version/bin" >> "$GITHUB_PATH"
       - name: MQ's verdict
         id: verdict
         if: ${{ !cancelled() && env.GPR_TOKEN != '' && hashFiles('build/mq/report.mqr') != '' }}
@@ -92,10 +93,14 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
           MQ_KEEP: ${{ github.event_name == 'push' && '--keep' || '' }}
-      - name: Save MQ's store of baselines
-        # Whatever the gate said: the analysis is kept all the same.
+      - name: MQ's baseline of this commit, for the runs after it
+        # Whatever the gate said: the analysis is kept all the same. Only what finalize kept of this commit goes, the
+        # bundle and the events, and a later run fetches it from here.
         if: ${{ !cancelled() && github.event_name == 'push' && steps.verdict.outcome != 'skipped' }}
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          path: ${{ runner.temp }}/mq-baselines
-          key: mq-baselines-v0-${{ github.sha }}
+          name: mq-baselines
+          path: ${{ runner.temp }}/mq-baselines/v0/**/${{ github.sha }}.*
+          # A run that kept nothing says why in the log of its verdict; the warning points there.
+          if-no-files-found: warn
+          retention-days: 90
