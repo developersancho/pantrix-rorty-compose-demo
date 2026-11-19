@@ -1,3 +1,3 @@
-# For a trial of MQ on GitHub, on a branch that is never merged: the gate says what it found, and its check is
-# neutral when it does not pass.
-mode: advise
+# For a trial of MQ on GitHub: a pull request that loosens its own gate. MQ reads the gate of the base, and
+# ignores this.
+mode: observe
