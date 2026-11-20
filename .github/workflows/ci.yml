@@ -66,9 +66,13 @@ jobs:
           mq=()
           if [ -n "$GPR_TOKEN" ]; then
             mq=(--init-script .github/pantrix-mq.init.gradle.kts mqAnalyze -Pmq.project=rorty-android
-              -Pmq.baselines=git:origin)
+              -Pmq.baselines=git:origin $MQ_REFERENCE)
           fi
           ./gradlew lintReportDebug detekt koverXmlReportDebug --continue "${mq[@]}"
+        env:
+          # TRIAL, not to be merged: a push to the trial branch is measured from nothing, so that its analysis is a
+          # baseline. .mq/config.yml says it as well, but on GitHub Actions the run's default branch comes first.
+          MQ_REFERENCE: ${{ github.event_name == 'push' && '-Pmq.referenceBranch=trial/git-store' || '' }}
       - name: MQ's verdict
         id: verdict
         if: ${{ !cancelled() && env.GPR_TOKEN != '' && hashFiles('build/mq/report.mqr') != '' }}
