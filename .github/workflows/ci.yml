@@ -127,7 +127,9 @@ jobs:
       - name: MQ's store of baselines, for the commits of the part
         run: |
           find parts -type f
-          pmq baselines fetch --github --into "$RUNNER_TEMP/mq-baselines" --bundle parts/mq-part-android/report.mqr
+          # download-artifact puts the one artifact a pattern matches in the directory itself, and each of several in
+          # a directory of its own: the bundle is found, not named.
+          pmq baselines fetch --github --into "$RUNNER_TEMP/mq-baselines" --bundle "$(find parts -name '*.mqr' -print -quit)"
         env:
           GITHUB_TOKEN: ${{ github.token }}
       - name: MQ's verdict
