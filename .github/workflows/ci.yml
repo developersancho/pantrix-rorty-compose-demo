@@ -29,9 +29,9 @@ jobs:
       contents: read
       # For MQ's store of baselines: the artifacts master's runs left, which pmq lists and downloads.
       actions: read
-      # For MQ's verdict: a check on the commit, and on a pull request a comment that every run updates.
-      checks: write
-      pull-requests: write
+    # TRIAL, not to be merged: the job that judges the part has no checkout, and takes the version of MQ from here.
+    outputs:
+      mq-version: ${{ steps.pmq.outputs.version }}
     env:
       GPR_USER: ${{ github.repository_owner }}
       GPR_TOKEN: ${{ secrets.MQ_PACKAGES_TOKEN }}
@@ -51,9 +51,11 @@ jobs:
           # The open-source cache of the action. Its default is a proprietary one that comes with terms of use.
           cache-provider: basic
       - name: pmq, from GitHub Packages
+        id: pmq
         if: env.GPR_TOKEN != ''
         run: |
           version="$(cat .github/pantrix-mq.version)"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
           base="https://maven.pkg.github.com/developersancho/pantrix-mq/io/github/developersancho/pantrix/mq"
           curl -fsSL -u "$GPR_USER:$GPR_TOKEN" -o "$RUNNER_TEMP/pmq.zip" \
             "$base/pantrix-mq-scanner-cli/$version/pantrix-mq-scanner-cli-$version.zip"
@@ -75,32 +77,69 @@ jobs:
               "-Pmq.baselines=$RUNNER_TEMP/mq-baselines")
           fi
           ./gradlew lintReportDebug detekt koverXmlReportDebug --continue "${mq[@]}"
-      - name: MQ's verdict
-        id: verdict
+      # TRIAL, not to be merged: the part is left as an artifact and a job of its own judges it, as Android and iOS
+      # on runners of their own would.
+      - name: MQ's part, for the job that judges it
         if: ${{ !cancelled() && env.GPR_TOKEN != '' && hashFiles('build/mq/report.mqr') != '' }}
-        # The verdict is MQ's check, which says it once: the step fails only when MQ could not judge at all (1), and
-        # not when the gate failed (2) or is incomplete (3). Master keeps its analysis, which its pull requests are
-        # compared with.
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: mq-part-android
+          path: build/mq/report.mqr
+          retention-days: 1
+      # TRIAL, not to be merged: the run goes on after the part is left, so that the workflow of the trial fetches it
+      # from a run that is still going.
+      - name: A wait, for the trial
+        run: sleep 120
+
+  mq:
+    name: MQ's verdict
+    needs: [checks]
+    if: ${{ !cancelled() && needs.checks.outputs.mq-version != '' }}
+    runs-on: ubuntu-26.04
+    timeout-minutes: 15
+    permissions:
+      # For MQ's store of baselines and for the part: the artifacts runs left, which this job downloads.
+      actions: read
+      # For MQ's verdict: a check on the commit, and on a pull request a comment that every run updates.
+      checks: write
+      pull-requests: write
+    env:
+      GPR_USER: ${{ github.repository_owner }}
+      GPR_TOKEN: ${{ secrets.MQ_PACKAGES_TOKEN }}
+    # TRIAL, not to be merged: no checkout. The parts, the store and pmq are all the verdict needs.
+    steps:
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: zulu
+          java-version: 21
+      - name: pmq, from GitHub Packages
+        run: |
+          version="${{ needs.checks.outputs.mq-version }}"
+          base="https://maven.pkg.github.com/developersancho/pantrix-mq/io/github/developersancho/pantrix/mq"
+          curl -fsSL -u "$GPR_USER:$GPR_TOKEN" -o "$RUNNER_TEMP/pmq.zip" \
+            "$base/pantrix-mq-scanner-cli/$version/pantrix-mq-scanner-cli-$version.zip"
+          unzip -q "$RUNNER_TEMP/pmq.zip" -d "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/pmq-$version/bin" >> "$GITHUB_PATH"
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: mq-part-*
+          path: parts
+      - name: MQ's store of baselines, for the commits of the part
+        run: |
+          find parts -type f
+          pmq baselines fetch --github --into "$RUNNER_TEMP/mq-baselines" --bundle parts/mq-part-android/report.mqr
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+      - name: MQ's verdict
+        # The step fails only when MQ could not judge at all (1), and not when the gate failed (2) or is incomplete (3).
         run: |
           status=0
           pmq finalize \
-            --bundle build/mq/report.mqr \
+            --bundles parts \
             --baselines "$RUNNER_TEMP/mq-baselines" \
             --summary "$GITHUB_STEP_SUMMARY" \
-            $MQ_KEEP --github || status=$?
+            --github || status=$?
           if [ "$status" -eq 2 ] || [ "$status" -eq 3 ]; then status=0; fi
           exit "$status"
         env:
           GITHUB_TOKEN: ${{ github.token }}
-          MQ_KEEP: ${{ github.event_name == 'push' && '--keep' || '' }}
-      - name: MQ's baseline of this commit, for the runs after it
-        # Whatever the gate said: the analysis is kept all the same. Only what finalize kept of this commit goes, the
-        # bundle and the events, and a later run fetches it from here.
-        if: ${{ !cancelled() && github.event_name == 'push' && steps.verdict.outcome != 'skipped' }}
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: mq-baselines
-          path: ${{ runner.temp }}/mq-baselines/v0/**/${{ github.sha }}.*
-          # A run that kept nothing says why in the log of its verdict; the warning points there.
-          if-no-files-found: warn
-          retention-days: 90

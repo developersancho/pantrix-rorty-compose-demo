@@ -1,0 +1,54 @@
+# TRIAL, not to be merged: a workflow of its own fetches the part that CI leaves, while CI's run is still going, for a
+# trial of pmq parts fetch. It writes nothing to GitHub: what it fetched is in its log.
+name: MQ parts fetch
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  fetch:
+    name: The part of CI, fetched while its run goes on
+    runs-on: ubuntu-26.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      # For the artifacts of CI's run, which pmq lists and downloads.
+      actions: read
+    env:
+      GPR_USER: ${{ github.repository_owner }}
+      GPR_TOKEN: ${{ secrets.MQ_PACKAGES_TOKEN }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: .github
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: zulu
+          java-version: 21
+      - name: pmq, from GitHub Packages
+        if: env.GPR_TOKEN != ''
+        run: |
+          version="$(cat .github/pantrix-mq.version)"
+          base="https://maven.pkg.github.com/developersancho/pantrix-mq/io/github/developersancho/pantrix/mq"
+          curl -fsSL -u "$GPR_USER:$GPR_TOKEN" -o "$RUNNER_TEMP/pmq.zip" \
+            "$base/pantrix-mq-scanner-cli/$version/pantrix-mq-scanner-cli-$version.zip"
+          unzip -q "$RUNNER_TEMP/pmq.zip" -d "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/pmq-$version/bin" >> "$GITHUB_PATH"
+      - name: The part, fetched
+        if: env.GPR_TOKEN != ''
+        run: pmq parts fetch --github --into parts --part android --wait 15
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+      - name: What was fetched, and where CI's run was then
+        if: env.GPR_TOKEN != ''
+        run: |
+          find parts -type f -exec ls -l {} +
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs?head_sha=$HEAD&event=pull_request" \
+            --jq '.workflow_runs[] | "\(.name): \(.status)"'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
