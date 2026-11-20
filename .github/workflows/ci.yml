@@ -9,7 +9,8 @@ name: CI
 
 on:
   push:
-    branches: [master]
+    # TRIAL, not to be merged: the trial branch keeps its analyses in MQ's store of baselines in git refs.
+    branches: [master, trial/git-store]
   pull_request:
 
 permissions:
@@ -26,9 +27,9 @@ jobs:
     runs-on: ubuntu-26.04
     timeout-minutes: 30
     permissions:
-      contents: read
-      # For MQ's store of baselines: the artifacts master's runs left, which pmq lists and downloads.
-      actions: read
+      # TRIAL, not to be merged: MQ's store of baselines is in git refs of this repository, refs/mq/*, which a run
+      # of the protected branch pushes to.
+      contents: write
       # For MQ's verdict: a check on the commit, and on a pull request a comment that every run updates.
       checks: write
       pull-requests: write
@@ -38,7 +39,8 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          persist-credentials: false
+          # TRIAL, not to be merged: pmq pushes to refs/mq/* with the credentials the checkout keeps.
+          persist-credentials: true
           # The whole history: MQ measures a pull request from where it left master, and looks back through master
           # for the nearest commit its store holds the analysis of.
           fetch-depth: 0
@@ -59,20 +61,12 @@ jobs:
             "$base/pantrix-mq-scanner-cli/$version/pantrix-mq-scanner-cli-$version.zip"
           unzip -q "$RUNNER_TEMP/pmq.zip" -d "$RUNNER_TEMP"
           echo "$RUNNER_TEMP/pmq-$version/bin" >> "$GITHUB_PATH"
-      # MQ's store of baselines is a directory outside the checkout. A run of a push to master keeps its analysis in it
-      # and uploads what it kept as an artifact named mq-baselines; every run brings the baselines of the commits
-      # before it back from those artifacts, and takes one only from a run of a push to master in this repository.
-      - name: MQ's store of baselines, from the artifacts master's runs left
-        if: env.GPR_TOKEN != ''
-        run: pmq baselines fetch --github --into "$RUNNER_TEMP/mq-baselines"
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
       - name: Android Lint, detekt and the unit tests with Kover, and MQ's analysis of them
         run: |
           mq=()
           if [ -n "$GPR_TOKEN" ]; then
             mq=(--init-script .github/pantrix-mq.init.gradle.kts mqAnalyze -Pmq.project=rorty-android
-              "-Pmq.baselines=$RUNNER_TEMP/mq-baselines")
+              -Pmq.baselines=git:origin)
           fi
           ./gradlew lintReportDebug detekt koverXmlReportDebug --continue "${mq[@]}"
       - name: MQ's verdict
@@ -85,7 +79,7 @@ jobs:
           status=0
           pmq finalize \
             --bundle build/mq/report.mqr \
-            --baselines "$RUNNER_TEMP/mq-baselines" \
+            --baselines git:origin \
             --summary "$GITHUB_STEP_SUMMARY" \
             $MQ_KEEP --github || status=$?
           if [ "$status" -eq 2 ] || [ "$status" -eq 3 ]; then status=0; fi
@@ -93,14 +87,3 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
           MQ_KEEP: ${{ github.event_name == 'push' && '--keep' || '' }}
-      - name: MQ's baseline of this commit, for the runs after it
-        # Whatever the gate said: the analysis is kept all the same. Only what finalize kept of this commit goes, the
-        # bundle and the events, and a later run fetches it from here.
-        if: ${{ !cancelled() && github.event_name == 'push' && steps.verdict.outcome != 'skipped' }}
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: mq-baselines
-          path: ${{ runner.temp }}/mq-baselines/v0/**/${{ github.sha }}.*
-          # A run that kept nothing says why in the log of its verdict; the warning points there.
-          if-no-files-found: warn
-          retention-days: 90

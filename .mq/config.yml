@@ -1,0 +1,4 @@
+# TRIAL, not to be merged: the trial branch is a branch of its own, whose analyses are baselines, for a trial of
+# MQ's store of baselines in git refs.
+referenceBranches:
+  "trial/git-store": trial/git-store
