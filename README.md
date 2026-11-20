@@ -330,3 +330,5 @@ One thing the expansion made visible on Android that iOS does not show: R8's syn
 equivalent because symbolicator labels it `<compiler-generated>`; R8 has no such marker, and filtering
 on a name pattern would risk dropping a real class. It sits at the outer end of the chain, so the blame
 frame and the grouping are unaffected — it is noise, not a wrong answer.
+
+<!-- TRIAL, not to be merged: the head of a pull request whose base gained a failing test after it, for a trial of MQ. -->
