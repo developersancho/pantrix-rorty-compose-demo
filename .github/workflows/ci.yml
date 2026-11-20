@@ -18,7 +18,9 @@ permissions:
 concurrency:
   # A newer push to a pull request makes the run for the older one pointless. On master every run is kept.
   group: ci-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  # TRIAL, not to be merged: the older run of a pull request is kept, so that it ends after a push came during it,
+  # for a trial of MQ's stale analysis.
+  cancel-in-progress: false
 
 jobs:
   checks:
