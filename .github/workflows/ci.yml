@@ -73,10 +73,6 @@ jobs:
               "-Pmq.baselines=$RUNNER_TEMP/mq-baselines")
           fi
           ./gradlew lintReportDebug detekt koverXmlReportDebug --continue "${mq[@]}"
-      # TRIAL, not to be merged: the run of this commit waits before its verdict, so that the run of the push after it
-      # writes first, for a trial of MQ's stale analysis.
-      - name: A wait, for the trial
-        run: sleep 300
       - name: MQ's verdict
         id: verdict
         if: ${{ !cancelled() && env.GPR_TOKEN != '' && hashFiles('build/mq/report.mqr') != '' }}
